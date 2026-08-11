@@ -1,0 +1,197 @@
+@import 'tailwindcss';
+
+/* Montserrat (headline) + Plus Jakarta Sans (body/label), di-host sendiri di
+   public/fonts agar aplikasi tetap tampil benar tanpa koneksi internet. */
+@import './fonts.css';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+@theme {
+    /* Body & label */
+    --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    /* Headline */
+    --font-display: 'Montserrat', ui-sans-serif, system-ui, sans-serif;
+
+    --color-navy-900: #071229;
+    --color-navy-800: #0b1b3a;
+    --color-navy-700: #132c5c;
+    --color-navy-600: #1d3f7d;
+    --color-cyan-500: #00b8d9;
+    --color-cyan-600: #0891a8;
+    --color-amber-500: #f5a524;
+    --color-line: #e2e8f0;
+    --color-canvas: #f5f7fb;
+}
+
+/* ============================================================ dasar halaman */
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    background: var(--color-canvas);
+    color: #0f172a;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.015em;
+}
+
+/* ============================================================== komponen UI */
+
+.card {
+    background: #fff;
+    border: 1px solid var(--color-line);
+    border-radius: 1rem;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+.card-pad { padding: 1.25rem 1.5rem; }
+
+.eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-cyan-600);
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.625rem;
+    padding: 0.55rem 1.05rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color .15s, color .15s, border-color .15s, opacity .15s;
+}
+
+.btn:disabled, .btn[aria-disabled="true"] {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.btn-primary { background: var(--color-navy-700); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--color-navy-600); }
+
+.btn-cyan { background: var(--color-cyan-500); color: #04202b; }
+.btn-cyan:hover:not(:disabled) { background: var(--color-cyan-600); color: #fff; }
+
+.btn-ghost { background: #fff; color: var(--color-navy-700); border-color: var(--color-line); }
+.btn-ghost:hover:not(:disabled) { background: #f1f5f9; }
+
+.btn-danger { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+.btn-danger:hover:not(:disabled) { background: #fee2e2; }
+
+.btn-sm { padding: 0.35rem 0.7rem; font-size: 0.8125rem; }
+
+.label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 0.35rem;
+}
+
+.input, .select, .textarea {
+    width: 100%;
+    border: 1px solid var(--color-line);
+    border-radius: 0.625rem;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.9rem;
+    background: #fff;
+    color: #0f172a;
+}
+
+.input:focus, .select:focus, .textarea:focus {
+    outline: 2px solid color-mix(in srgb, var(--color-cyan-500) 45%, transparent);
+    outline-offset: 1px;
+    border-color: var(--color-cyan-500);
+}
+
+.textarea { min-height: 5.5rem; }
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 999px;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: #eef2f7;
+    color: #475569;
+}
+
+.chip-ok { background: #e7f8ef; color: #067647; }
+.chip-warn { background: #fff5e5; color: #b54708; }
+.chip-info { background: #e6f7fb; color: #0e7490; }
+.chip-off { background: #f1f5f9; color: #64748b; }
+.chip-bad { background: #fef2f2; color: #b42318; }
+
+.tbl { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.tbl th {
+    text-align: left;
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #64748b;
+    font-weight: 700;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--color-line);
+    white-space: nowrap;
+}
+.tbl td { padding: 0.7rem 0.75rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl-wrap { overflow-x: auto; }
+
+.stat-label { font-size: 0.6875rem; letter-spacing: 0.12em; text-transform: uppercase; color: #64748b; font-weight: 700; }
+.stat-value { font-family: var(--font-display); font-size: 1.9rem; font-weight: 800; color: var(--color-navy-800); line-height: 1.1; }
+
+/* jalur enam tahap */
+.langkah { display: flex; gap: .75rem; align-items: stretch; flex-wrap: wrap; }
+.langkah-item {
+    flex: 1 1 9rem;
+    border-radius: .75rem;
+    padding: .7rem .85rem;
+    border: 1px solid var(--color-line);
+    background: #fff;
+}
+.langkah-selesai { border-color: #a7f3d0; background: #f0fdf7; }
+.langkah-aktif { border-color: var(--color-cyan-500); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-cyan-500) 18%, transparent); }
+.langkah-terkunci { background: #f8fafc; color: #94a3b8; }
+
+.sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .5rem .75rem;
+    border-radius: .55rem;
+    font-size: .875rem;
+    font-weight: 500;
+    color: #cbd5e1;
+}
+.sidebar-link:hover { background: rgb(255 255 255 / .07); color: #fff; }
+.sidebar-link.aktif { background: var(--color-cyan-500); color: #04202b; font-weight: 700; }
+
+.prose-ringkas p { margin-bottom: .75rem; line-height: 1.65; }
+
+/* ==================================================== tampilan cetak sertifikat */
+
+@media print {
+    .no-print { display: none !important; }
+    body { background: #fff; }
+    .sertifikat { box-shadow: none !important; border-width: 6px !important; }
+}
