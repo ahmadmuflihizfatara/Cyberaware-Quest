@@ -374,7 +374,25 @@
     <div class="mt-4">{{ $pendaftaran->links() }}</div>
 </div>
 
-<a href="{{ route('admin.laporan.ekspor', ['kehadiran', 'kegiatan' => $k->id_kegiatan]) }}" class="btn btn-ghost mt-4">
-    Ekspor rekap kehadiran (CSV)
-</a>
+<div class="mt-4 flex flex-wrap items-center gap-2" x-data="{ menyiapkan: null }">
+    <a href="{{ route('admin.laporan.ekspor', ['kehadiran', 'kegiatan' => $k->id_kegiatan, 'format' => 'csv']) }}"
+       @click="menyiapkan = 'csv'; setTimeout(() => menyiapkan = null, 2000)"
+       class="btn btn-cyan">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+        </svg>
+        Ekspor rekap kehadiran (CSV)
+    </a>
+    <a href="{{ route('admin.laporan.ekspor', ['kehadiran', 'kegiatan' => $k->id_kegiatan, 'format' => 'pdf']) }}"
+       @click="menyiapkan = 'pdf'; setTimeout(() => menyiapkan = null, 2000)"
+       class="btn btn-ghost">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+        </svg>
+        Ekspor rekap kehadiran (PDF)
+    </a>
+    <span x-show="menyiapkan" x-transition.opacity x-cloak class="text-xs font-semibold text-emerald-600">
+        Berkas <span x-text="menyiapkan === 'pdf' ? 'PDF' : 'CSV'"></span> sedang disiapkan&hellip;
+    </span>
+</div>
 @endsection
