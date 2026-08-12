@@ -19,9 +19,6 @@ Route::get('/kegiatan', [PublikController::class, 'kegiatan'])->name('kegiatan.i
 Route::get('/kegiatan/{kegiatan}', [PublikController::class, 'kegiatanShow'])->name('kegiatan.show');
 Route::get('/verifikasi-sertifikat', [PublikController::class, 'verifikasi'])->name('verifikasi');
 
-Route::middleware('auth')->post('/kegiatan/{kegiatan}/daftar', [PublikController::class, 'daftar'])
-    ->name('kegiatan.daftar');
-
 // ----------------------------------------------------------------- autentikasi
 
 Route::middleware('guest')->group(function () {
@@ -45,6 +42,10 @@ Route::middleware(['auth', 'role:peserta'])->prefix('peserta')->name('peserta.')
     Route::get('/badge', [PesertaController::class, 'badge'])->name('badge');
     Route::get('/profil', [PesertaController::class, 'profil'])->name('profil');
     Route::post('/profil', [PesertaController::class, 'simpanProfil'])->name('profil.simpan');
+
+    Route::get('/informasi-kegiatan', [PesertaController::class, 'informasiKegiatan'])->name('informasi-kegiatan');
+    Route::get('/informasi-kegiatan/{kegiatan}', [PesertaController::class, 'informasiKegiatanShow'])->name('informasi-kegiatan.show');
+    Route::post('/informasi-kegiatan/{kegiatan}/daftar', [PesertaController::class, 'daftar'])->name('informasi-kegiatan.daftar');
 
     Route::prefix('pendaftaran/{pendaftaran}')->group(function () {
         Route::get('/', [PesertaController::class, 'show'])->name('pendaftaran.show');

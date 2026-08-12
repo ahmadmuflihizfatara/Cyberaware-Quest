@@ -1,4 +1,5 @@
-<a href="{{ route('kegiatan.show', $k) }}" class="card card-pad transition hover:border-cyan-500">
+@php $rute = $rute ?? 'kegiatan.show'; @endphp
+<a href="{{ route($rute, $k) }}" class="card card-pad transition hover:border-cyan-500">
     <div class="flex items-center gap-2">
         <span class="chip chip-info">{{ ucfirst($k->mode_pelaksanaan) }}</span>
         <span class="chip {{ $k->status_kegiatan === 'berlangsung' ? 'chip-warn' : 'chip-off' }}">{{ $k->status_kegiatan }}</span>

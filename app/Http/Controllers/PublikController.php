@@ -2,15 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Afiliasi;
 use App\Models\Kegiatan;
-use App\Models\LogIntegrasi;
 use App\Models\Pendaftaran;
 use App\Models\Peserta;
 use App\Models\ProgramPkm;
 use App\Models\Sertifikat;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class PublikController extends Controller
 {
@@ -64,59 +61,7 @@ class PublikController extends Controller
                 ->where('id_kegiatan', $kegiatan->id_kegiatan)->exists();
         }
 
-        $mitra = \App\Models\Mitra::where('status_mitra', 'aktif')->orderBy('nama_mitra')->get();
-
-        return view('publik.kegiatan-detail', compact('kegiatan', 'sudahDaftar', 'mitra'));
-    }
-
-    public function daftar(Request $request, Kegiatan $kegiatan)
-    {
-        $data = $request->validate([
-            'nama_peserta' => ['required', 'string', 'max:150'],
-            'no_hp' => ['nullable', 'string', 'max:30'],
-            'id_mitra' => ['required', 'integer', 'exists:mitra,id_mitra'],
-            'peran_afiliasi' => ['required', 'in:siswa,guru,staf,umum'],
-            'setuju' => ['accepted'],
-        ]);
-
-        if ($kegiatan->sisaKuota() < 1) {
-            return back()->withErrors(['id_mitra' => 'Kuota kegiatan sudah penuh.'])->withInput();
-        }
-        if ($kegiatan->status_kegiatan === 'dibatalkan') {
-            return back()->withErrors(['id_mitra' => 'Kegiatan ini dibatalkan.'])->withInput();
-        }
-
-        $pengguna = $request->user();
-
-        $pendaftaran = DB::transaction(function () use ($data, $kegiatan, $pengguna) {
-            $peserta = Peserta::firstOrCreate(
-                ['email' => $pengguna->email],
-                ['nama_peserta' => $data['nama_peserta'], 'no_hp' => $data['no_hp'] ?? null],
-            );
-
-            if (Pendaftaran::where('id_peserta', $peserta->id_peserta)
-                ->where('id_kegiatan', $kegiatan->id_kegiatan)->exists()) {
-                abort(422, 'Anda sudah terdaftar pada kegiatan ini.');
-            }
-
-            $pendaftaran = Pendaftaran::create([
-                'id_peserta' => $peserta->id_peserta,
-                'id_kegiatan' => $kegiatan->id_kegiatan,
-            ]);
-
-            Afiliasi::create([
-                'id_pendaftaran' => $pendaftaran->id_pendaftaran,
-                'id_mitra' => $data['id_mitra'],
-                'peran_afiliasi' => $data['peran_afiliasi'],
-            ]);
-
-            return $pendaftaran;
-        });
-
-        LogIntegrasi::catat('pendaftaran', 'daftar_kegiatan', 'kegiatan #'.$kegiatan->id_kegiatan);
-
-        return redirect()->route('peserta.pendaftaran.show', $pendaftaran)
-            ->with('sukses', 'Pendaftaran berhasil. Lanjutkan dengan persetujuan pengolahan data.');
+        return view('publik.kegiatan-detail', compact('kegiatan', 'sudahDaftar'));
     }
 
     public function verifikasi(Request $request)

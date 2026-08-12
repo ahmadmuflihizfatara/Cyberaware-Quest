@@ -8,7 +8,7 @@
     <div class="card card-pad mt-5">
         <p class="text-sm text-slate-600">
             Anda belum terdaftar pada kegiatan apa pun.
-            <a class="font-semibold text-navy-700 hover:underline" href="{{ route('kegiatan.index') }}">Lihat kegiatan terbuka &rarr;</a>
+            <a class="font-semibold text-navy-700 hover:underline" href="{{ route('peserta.informasi-kegiatan') }}">Lihat kegiatan terbuka &rarr;</a>
         </p>
     </div>
 @else

@@ -18,7 +18,7 @@
         </div>
     @empty
         <p class="text-sm text-slate-500">Belum ada pendaftaran.
-            <a class="font-semibold text-navy-700 hover:underline" href="{{ route('kegiatan.index') }}">Cari kegiatan &rarr;</a></p>
+            <a class="font-semibold text-navy-700 hover:underline" href="{{ route('peserta.informasi-kegiatan') }}">Cari kegiatan &rarr;</a></p>
     @endforelse
 </div>
 @endsection

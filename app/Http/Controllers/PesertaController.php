@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Afiliasi;
 use App\Models\AktivitasGamifikasi;
 use App\Models\AktivitasPembelajaran;
 use App\Models\ArtefakPeserta;
 use App\Models\Badge;
+use App\Models\Kegiatan;
 use App\Models\Kehadiran;
 use App\Models\LogIntegrasi;
+use App\Models\Mitra;
 use App\Models\PartisipasiAktivitas;
 use App\Models\PartisipasiGamifikasi;
 use App\Models\Pendaftaran;
@@ -50,6 +53,89 @@ class PesertaController extends Controller
         return view('peserta.kegiatan', [
             'pendaftaran' => $this->daftarPendaftaran($this->peserta()),
         ]);
+    }
+
+    // -------------------------------------------------- informasi & pendaftaran kegiatan
+
+    public function informasiKegiatan(Request $request)
+    {
+        $q = Kegiatan::with('program', 'sekolah.mitra', 'lokasi')->withCount('pendaftaran');
+
+        if ($request->filled('mode')) {
+            $q->where('mode_pelaksanaan', $request->string('mode'));
+        }
+        if ($request->filled('cari')) {
+            $q->where('tema', 'ilike', '%'.$request->string('cari').'%');
+        }
+
+        return view('peserta.informasi-kegiatan', [
+            'kegiatan' => $q->orderBy('tanggal_mulai')->paginate(9)->withQueryString(),
+        ]);
+    }
+
+    public function informasiKegiatanShow(Kegiatan $kegiatan)
+    {
+        $kegiatan->load('program', 'sekolah.mitra', 'lokasi', 'sesi.fasilitator', 'sesi.materi');
+
+        $peserta = $this->peserta();
+        $sudahDaftar = $peserta && Pendaftaran::where('id_peserta', $peserta->id_peserta)
+            ->where('id_kegiatan', $kegiatan->id_kegiatan)->exists();
+
+        return view('peserta.informasi-kegiatan-show', [
+            'kegiatan' => $kegiatan,
+            'sudahDaftar' => $sudahDaftar,
+            'mitra' => Mitra::where('status_mitra', 'aktif')->orderBy('nama_mitra')->get(),
+        ]);
+    }
+
+    public function daftar(Request $request, Kegiatan $kegiatan)
+    {
+        $data = $request->validate([
+            'nama_peserta' => ['required', 'string', 'max:150'],
+            'no_hp' => ['nullable', 'string', 'max:30'],
+            'id_mitra' => ['required', 'integer', 'exists:mitra,id_mitra'],
+            'peran_afiliasi' => ['required', 'in:siswa,guru,staf,umum'],
+            'setuju' => ['accepted'],
+        ]);
+
+        if ($kegiatan->sisaKuota() < 1) {
+            return back()->withErrors(['id_mitra' => 'Kuota kegiatan sudah penuh.'])->withInput();
+        }
+        if ($kegiatan->status_kegiatan === 'dibatalkan') {
+            return back()->withErrors(['id_mitra' => 'Kegiatan ini dibatalkan.'])->withInput();
+        }
+
+        $pengguna = $request->user();
+
+        $pendaftaran = DB::transaction(function () use ($data, $kegiatan, $pengguna) {
+            $peserta = Peserta::firstOrCreate(
+                ['email' => $pengguna->email],
+                ['nama_peserta' => $data['nama_peserta'], 'no_hp' => $data['no_hp'] ?? null],
+            );
+
+            if (Pendaftaran::where('id_peserta', $peserta->id_peserta)
+                ->where('id_kegiatan', $kegiatan->id_kegiatan)->exists()) {
+                abort(422, 'Anda sudah terdaftar pada kegiatan ini.');
+            }
+
+            $pendaftaran = Pendaftaran::create([
+                'id_peserta' => $peserta->id_peserta,
+                'id_kegiatan' => $kegiatan->id_kegiatan,
+            ]);
+
+            Afiliasi::create([
+                'id_pendaftaran' => $pendaftaran->id_pendaftaran,
+                'id_mitra' => $data['id_mitra'],
+                'peran_afiliasi' => $data['peran_afiliasi'],
+            ]);
+
+            return $pendaftaran;
+        });
+
+        LogIntegrasi::catat('pendaftaran', 'daftar_kegiatan', 'kegiatan #'.$kegiatan->id_kegiatan);
+
+        return redirect()->route('peserta.pendaftaran.show', $pendaftaran)
+            ->with('sukses', 'Pendaftaran berhasil. Lanjutkan dengan persetujuan pengolahan data.');
     }
 
     public function show(Pendaftaran $pendaftaran)

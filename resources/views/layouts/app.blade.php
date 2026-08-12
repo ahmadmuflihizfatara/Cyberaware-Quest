@@ -48,6 +48,7 @@
         default => array_filter([
             'Peserta' => [
                 ['peserta.dashboard', [], 'Dashboard'],
+                ['peserta.informasi-kegiatan', [], 'Informasi Kegiatan'],
                 ['peserta.kegiatan', [], 'Kegiatan Saya'],
                 ['peserta.poin', [], 'Poin & Mutasi'],
                 ['peserta.reward', [], 'Reward'],

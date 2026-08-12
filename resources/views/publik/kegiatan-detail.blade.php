@@ -4,7 +4,7 @@
 @section('isi')
 <a href="{{ route('kegiatan.index') }}" class="text-sm font-semibold text-slate-500 hover:text-navy-700">&larr; Semua kegiatan</a>
 
-<div class="mt-6 grid gap-6 lg:grid-cols-[1.5fr_1fr] lg:items-start">
+<div class="mt-6 max-w-2xl">
     <div>
         <p class="eyebrow">Detail Kegiatan</p>
         <h1 class="mt-1 text-3xl font-bold leading-tight">{{ $kegiatan->tema }}</h1>
@@ -48,61 +48,29 @@
                 <div class="h-full bg-cyan-500" style="width: {{ min(100, round($terisi / max(1, $kegiatan->kapasitas) * 100)) }}%"></div>
             </div>
         </div>
-    </div>
 
-    <aside class="card card-pad">
-        <p class="eyebrow">Formulir Pendaftaran</p>
+        <div class="card card-pad mt-4">
+            <p class="eyebrow">Pendaftaran</p>
 
-        @guest
-            <p class="mt-3 text-sm text-slate-600">Masuk atau buat akun peserta terlebih dahulu untuk mendaftar kegiatan ini.</p>
-            <div class="mt-4 flex gap-2">
-                <a href="{{ route('login') }}" class="btn btn-primary flex-1">Masuk</a>
-                <a href="{{ route('registrasi') }}" class="btn btn-ghost flex-1">Daftar Akun</a>
-            </div>
-        @else
-            @if ($sudahDaftar)
+            @guest
+                <p class="mt-3 text-sm text-slate-600">Masuk atau buat akun peserta untuk mendaftar kegiatan ini dari Dashboard Peserta.</p>
+                <div class="mt-4 flex gap-2">
+                    <a href="{{ route('login') }}" class="btn btn-primary flex-1">Masuk</a>
+                    <a href="{{ route('registrasi') }}" class="btn btn-ghost flex-1">Daftar Akun</a>
+                </div>
+            @elseif ($sudahDaftar)
                 <p class="mt-3 text-sm text-emerald-700">Anda sudah terdaftar pada kegiatan ini.</p>
                 <a href="{{ route('peserta.dashboard') }}" class="btn btn-cyan mt-4 w-full">Buka Dashboard Peserta</a>
+            @elseif (! auth()->user()->punyaPeran('peserta'))
+                <p class="mt-3 text-sm text-slate-600">Akun ini bukan akun peserta, sehingga tidak dapat mendaftar kegiatan.</p>
             @elseif ($kegiatan->sisaKuota() < 1)
                 <p class="mt-3 text-sm text-red-700">Kuota kegiatan sudah penuh.</p>
                 <button class="btn btn-primary mt-4 w-full" disabled>Kuota Penuh</button>
             @else
-                <form method="POST" action="{{ route('kegiatan.daftar', $kegiatan) }}" class="mt-4 space-y-3">
-                    @csrf
-                    <div>
-                        <label class="label" for="nama_peserta">Nama lengkap</label>
-                        <input class="input" id="nama_peserta" name="nama_peserta" required
-                               value="{{ old('nama_peserta', auth()->user()->nama_pengguna) }}">
-                    </div>
-                    <div>
-                        <label class="label" for="no_hp">Nomor HP</label>
-                        <input class="input" id="no_hp" name="no_hp" value="{{ old('no_hp') }}" placeholder="08...">
-                    </div>
-                    <div>
-                        <label class="label" for="id_mitra">Asal sekolah / instansi</label>
-                        <select class="select" id="id_mitra" name="id_mitra" required>
-                            <option value="">— pilih —</option>
-                            @foreach ($mitra as $m)
-                                <option value="{{ $m->id_mitra }}" @selected(old('id_mitra') == $m->id_mitra)>{{ $m->nama_mitra }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label class="label" for="peran_afiliasi">Peran</label>
-                        <select class="select" id="peran_afiliasi" name="peran_afiliasi" required>
-                            @foreach (['siswa', 'guru', 'staf', 'umum'] as $r)
-                                <option value="{{ $r }}" @selected(old('peran_afiliasi') === $r)>{{ ucfirst($r) }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <label class="flex items-start gap-2 text-sm text-slate-600">
-                        <input type="checkbox" name="setuju" value="1" class="mt-1" required>
-                        Saya bersedia data pendaftaran diolah untuk keperluan kegiatan PkM ini.
-                    </label>
-                    <button class="btn btn-cyan w-full">Daftar Sekarang</button>
-                </form>
+                <p class="mt-3 text-sm text-slate-600">Pendaftaran dilakukan dari Dashboard Peserta.</p>
+                <a href="{{ route('peserta.informasi-kegiatan.show', $kegiatan) }}" class="btn btn-cyan mt-4 w-full">Daftar dari Dashboard</a>
             @endif
-        @endguest
-    </aside>
+        </div>
+    </div>
 </div>
 @endsection
