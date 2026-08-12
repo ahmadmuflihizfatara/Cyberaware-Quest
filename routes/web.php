@@ -109,6 +109,7 @@ Route::middleware(['auth', 'role:admin,penyelenggara'])->prefix('admin')->name('
     Route::post('/kegiatan/{kegiatan}/evaluasi', [KegiatanController::class, 'simpanEvaluasi'])->name('kegiatan.evaluasi');
     Route::post('/kegiatan/{kegiatan}/indikator', [KegiatanController::class, 'simpanIndikator'])->name('kegiatan.indikator');
     Route::put('/pendaftaran/{pendaftaran}', [KegiatanController::class, 'ubahStatusPendaftaran'])->name('pendaftaran.status');
+    Route::put('/kegiatan/{kegiatan}/pendaftaran-massal', [KegiatanController::class, 'ubahStatusPendaftaranMassal'])->name('kegiatan.pendaftaran.massal');
 
     // Instrumen generik K3.
     Route::get('/instrumen/{instrumen}/versi', [InstrumenController::class, 'versi'])->name('instrumen.versi');

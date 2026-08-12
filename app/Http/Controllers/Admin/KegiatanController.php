@@ -11,6 +11,7 @@ use App\Models\KonfigurasiEvaluasiKegiatan;
 use App\Models\Lokasi;
 use App\Models\Materi;
 use App\Models\PelaksanaanInstrumen;
+use App\Models\Pendaftaran;
 use App\Models\ProgramPkm;
 use App\Models\Sekolah;
 use App\Models\Sesi;
@@ -45,17 +46,43 @@ class KegiatanController extends Controller
         return back()->with('sukses', 'Kegiatan diperbarui.');
     }
 
-    public function show(Kegiatan $kegiatan)
+    public function show(Request $request, Kegiatan $kegiatan)
     {
         $kegiatan->load('program', 'sekolah.mitra', 'lokasi', 'sesi.fasilitator', 'sesi.materi',
             'fasilitator', 'pelaksanaan.versi.instrumen', 'konfigurasiEvaluasi.versi');
+
+        $q = $kegiatan->pendaftaran()->with('peserta', 'afiliasi.mitra')->withCount('kehadiran');
+
+        if ($request->filled('cari')) {
+            $cari = $request->string('cari');
+            $q->whereHas('peserta', fn ($x) => $x->where('nama_peserta', 'ilike', '%'.$cari.'%'));
+        }
+        if ($request->filled('status')) {
+            $q->where('status_pendaftaran', $request->string('status'));
+        }
+
+        $pendaftaran = $q->orderByDesc('id_pendaftaran')->paginate(10)->withQueryString();
+
+        // Satu kueri gabungan untuk seluruh baris di halaman ini — menghindari
+        // N+1 dari memanggil Alur::tahapan() satu per satu per pendaftar.
+        $faseSelesai = DB::table('respons_instrumen as r')
+            ->join('pelaksanaan_instrumen as pi', 'pi.id_pelaksanaan', '=', 'r.id_pelaksanaan')
+            ->where('pi.id_kegiatan', $kegiatan->id_kegiatan)
+            ->where('r.is_final', true)
+            ->whereIn('r.id_pendaftaran', $pendaftaran->pluck('id_pendaftaran'))
+            ->select('r.id_pendaftaran', 'pi.fase')
+            ->get()
+            ->groupBy('id_pendaftaran')
+            ->map(fn ($baris) => $baris->pluck('fase')->all());
 
         return view('admin.kegiatan.detail', [
             'k' => $kegiatan,
             'fasilitator' => Fasilitator::orderBy('nama_fasilitator')->get(),
             'materi' => Materi::orderBy('judul_materi')->get(),
             'versi' => VersiInstrumen::with('instrumen')->get(),
-            'pendaftaran' => $kegiatan->pendaftaran()->with('peserta', 'afiliasi.mitra')->get(),
+            'pendaftaran' => $pendaftaran,
+            'faseSelesai' => $faseSelesai,
+            'totalSesi' => $kegiatan->sesi->count(),
             'rekapHadir' => Kehadiran::selectRaw('id_sesi, count(*) as jumlah')
                 ->whereIn('id_sesi', $kegiatan->sesi->pluck('id_sesi'))
                 ->groupBy('id_sesi')->pluck('jumlah', 'id_sesi'),
@@ -185,14 +212,39 @@ class KegiatanController extends Controller
         return back()->with('sukses', 'Pemetaan indikator evaluasi disimpan.');
     }
 
-    public function ubahStatusPendaftaran(Request $request, \App\Models\Pendaftaran $pendaftaran)
+    public function ubahStatusPendaftaran(Request $request, Pendaftaran $pendaftaran)
     {
         $data = $request->validate([
             'status_pendaftaran' => ['required', 'in:terdaftar,hadir,tidak_hadir,dibatalkan'],
         ]);
         $pendaftaran->update($data);
 
+        if ($request->wantsJson()) {
+            return response()->json(['sukses' => true, 'status_pendaftaran' => $data['status_pendaftaran']]);
+        }
+
         return back()->with('sukses', 'Status pendaftaran diubah.');
+    }
+
+    public function ubahStatusPendaftaranMassal(Request $request, Kegiatan $kegiatan)
+    {
+        $data = $request->validate([
+            'id_pendaftaran' => ['required', 'array', 'min:1'],
+            'id_pendaftaran.*' => ['integer'],
+            'status_pendaftaran' => ['required', 'in:terdaftar,hadir,tidak_hadir,dibatalkan'],
+        ]);
+
+        // Dibatasi ke kegiatan ini saja — mencegah id_pendaftaran kegiatan lain
+        // ikut terubah lewat payload yang dimanipulasi.
+        $jumlah = Pendaftaran::where('id_kegiatan', $kegiatan->id_kegiatan)
+            ->whereIn('id_pendaftaran', $data['id_pendaftaran'])
+            ->update(['status_pendaftaran' => $data['status_pendaftaran']]);
+
+        if ($request->wantsJson()) {
+            return response()->json(['sukses' => true, 'jumlah' => $jumlah, 'status_pendaftaran' => $data['status_pendaftaran']]);
+        }
+
+        return back()->with('sukses', $jumlah.' status pendaftaran diubah.');
     }
 
     // ---------------------------------------------------------------- private

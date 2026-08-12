@@ -209,35 +209,169 @@
 @endif
 
 {{-- --------------------------------------------------------- PENDAFTARAN --}}
-<h3 class="mt-8 text-lg font-bold">Pendaftar</h3>
-<div class="card mt-3 tbl-wrap">
-    <table class="tbl">
-        <thead><tr><th>#</th><th>Peserta</th><th>Afiliasi</th><th>Terdaftar</th><th>Status</th><th></th></tr></thead>
-        <tbody>
-        @forelse ($pendaftaran as $p)
-            <tr>
-                <td class="text-slate-400">{{ $p->id_pendaftaran }}</td>
-                <td class="font-semibold">{{ $p->peserta->nama_peserta }}</td>
-                <td>{{ $p->afiliasi?->mitra?->nama_mitra }} ({{ $p->afiliasi?->peran_afiliasi }})</td>
-                <td>{{ $p->tanggal_daftar?->format('d/m/Y H:i') }}</td>
-                <td><span class="chip chip-off">{{ $p->status_pendaftaran }}</span></td>
-                <td class="text-right">
-                    <form method="POST" action="{{ route('admin.pendaftaran.status', $p) }}" class="flex justify-end gap-2">
-                        @csrf @method('PUT')
-                        <select class="select w-36" name="status_pendaftaran">
-                            @foreach (['terdaftar', 'hadir', 'tidak_hadir', 'dibatalkan'] as $st)
-                                <option value="{{ $st }}" @selected($p->status_pendaftaran === $st)>{{ $st }}</option>
-                            @endforeach
-                        </select>
-                        <button class="btn btn-ghost btn-sm">Ubah</button>
-                    </form>
-                </td>
-            </tr>
-        @empty
-            <tr><td colspan="6" class="text-sm text-slate-500">Belum ada pendaftar.</td></tr>
-        @endforelse
-        </tbody>
-    </table>
+@php
+    $warnaStatus = ['terdaftar' => 'chip-off', 'hadir' => 'chip-ok', 'tidak_hadir' => 'chip-warn', 'dibatalkan' => 'chip-bad'];
+    $urlStatusTemplate = route('admin.pendaftaran.status', ['pendaftaran' => '__ID__']);
+@endphp
+
+<h3 id="pendaftar" class="mt-8 text-lg font-bold">
+    Pendaftar <span class="text-sm font-normal text-slate-400">({{ $pendaftaran->total() }})</span>
+</h3>
+
+<div x-data="{
+        terpilih: [],
+        idHalaman: @js($pendaftaran->pluck('id_pendaftaran')),
+        statusMassal: 'hadir',
+        memproses: false,
+        pesan: null,
+        semuaTerpilih() { return this.idHalaman.length > 0 && this.terpilih.length === this.idHalaman.length; },
+        toggleSemua(cek) { this.terpilih = cek ? [...this.idHalaman] : []; },
+        warna: { terdaftar: 'chip-off', hadir: 'chip-ok', tidak_hadir: 'chip-warn', dibatalkan: 'chip-bad' },
+        async ubahStatus(id, status, baris) {
+            const chip = baris.querySelector('.status-chip');
+            const url = @js($urlStatusTemplate).replace('__ID__', id);
+            try {
+                const r = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                    },
+                    body: JSON.stringify({ status_pendaftaran: status }),
+                });
+                const data = await r.json();
+                if (data.sukses) {
+                    chip.className = 'chip status-chip ' + this.warna[status];
+                    chip.textContent = status;
+                    baris.classList.remove('tr-flash');
+                    void baris.offsetWidth;
+                    baris.classList.add('tr-flash');
+                }
+            } catch (e) {
+                alert('Gagal mengubah status. Periksa koneksi lalu coba lagi.');
+            }
+        },
+        async terapkanMassal() {
+            if (this.terpilih.length === 0) return;
+            this.memproses = true;
+            try {
+                const r = await fetch(@js(route('admin.kegiatan.pendaftaran.massal', $k)), {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                    },
+                    body: JSON.stringify({ id_pendaftaran: this.terpilih, status_pendaftaran: this.statusMassal }),
+                });
+                const data = await r.json();
+                if (data.sukses) window.location.reload();
+            } finally {
+                this.memproses = false;
+            }
+        },
+    }" class="animasi-masuk mt-3">
+
+    <form method="GET" action="{{ route('admin.kegiatan.show', $k) }}#pendaftar" class="card card-pad flex flex-wrap items-end gap-3">
+        <div class="min-w-48 flex-1">
+            <label class="label" for="cari-pendaftar">Cari nama peserta</label>
+            <input type="text" class="input" id="cari-pendaftar" name="cari" value="{{ request('cari') }}" placeholder="mis. Nadia">
+        </div>
+        <div class="w-44">
+            <label class="label" for="status-pendaftar">Status</label>
+            <select class="select" id="status-pendaftar" name="status">
+                <option value="">Semua status</option>
+                @foreach (['terdaftar', 'hadir', 'tidak_hadir', 'dibatalkan'] as $st)
+                    <option value="{{ $st }}" @selected(request('status') === $st)>{{ $st }}</option>
+                @endforeach
+            </select>
+        </div>
+        <button class="btn btn-primary">Terapkan</button>
+        @if (request()->hasAny(['cari', 'status']))
+            <a href="{{ route('admin.kegiatan.show', $k) }}#pendaftar" class="btn btn-ghost">Reset</a>
+        @endif
+    </form>
+
+    <div x-show="terpilih.length > 0" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 -translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 -translate-y-2"
+         class="card card-pad mt-3 flex flex-wrap items-center gap-3 border-cyan-200 bg-cyan-50/50">
+        <span class="text-sm font-semibold text-navy-800"><span x-text="terpilih.length"></span> dipilih</span>
+        <select class="select w-40" x-model="statusMassal">
+            @foreach (['terdaftar', 'hadir', 'tidak_hadir', 'dibatalkan'] as $st)
+                <option value="{{ $st }}">{{ $st }}</option>
+            @endforeach
+        </select>
+        <button type="button" class="btn btn-cyan btn-sm" :disabled="memproses" @click="terapkanMassal()">
+            <span x-show="!memproses">Terapkan ke terpilih</span>
+            <span x-show="memproses">Memproses&hellip;</span>
+        </button>
+        <button type="button" class="btn btn-ghost btn-sm" @click="terpilih = []">Batal</button>
+    </div>
+
+    <div class="card mt-3 tbl-wrap">
+        <table class="tbl">
+            <thead>
+                <tr>
+                    <th class="w-8">
+                        <input type="checkbox" :checked="semuaTerpilih()" @change="toggleSemua($event.target.checked)">
+                    </th>
+                    <th>Peserta</th>
+                    <th>Afiliasi</th>
+                    <th>Terdaftar</th>
+                    <th>Progres</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody class="baris-masuk">
+            @forelse ($pendaftaran as $p)
+                @php
+                    $fase = $faseSelesai[$p->id_pendaftaran] ?? [];
+                @endphp
+                <tr>
+                    <td><input type="checkbox" value="{{ $p->id_pendaftaran }}" x-model="terpilih"></td>
+                    <td class="font-semibold">{{ $p->peserta->nama_peserta }}</td>
+                    <td>{{ $p->afiliasi?->mitra?->nama_mitra }} ({{ $p->afiliasi?->peran_afiliasi }})</td>
+                    <td>
+                        {{ $p->tanggal_daftar?->format('d/m/Y H:i') }}
+                        <span class="block text-xs text-slate-400">{{ $p->tanggal_daftar?->diffForHumans() }}</span>
+                    </td>
+                    <td>
+                        <div class="flex flex-wrap items-center gap-1">
+                            <span class="chip {{ $p->kehadiran_count > 0 ? 'chip-ok' : 'chip-off' }}">
+                                Hadir {{ $p->kehadiran_count }}/{{ $totalSesi }}
+                            </span>
+                            <span class="chip {{ in_array('pretest', $fase) ? 'chip-ok' : 'chip-off' }}">Pre</span>
+                            <span class="chip {{ in_array('posttest', $fase) ? 'chip-ok' : 'chip-off' }}">Post</span>
+                            <span class="chip {{ in_array('kuesioner', $fase) ? 'chip-ok' : 'chip-off' }}">Kues</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="flex items-center gap-2">
+                            <span class="chip status-chip {{ $warnaStatus[$p->status_pendaftaran] }}">{{ $p->status_pendaftaran }}</span>
+                            <select class="select select-sm w-32"
+                                    @change="ubahStatus({{ $p->id_pendaftaran }}, $event.target.value, $event.target.closest('tr'))">
+                                <option value="" selected disabled>Ubah…</option>
+                                @foreach (['terdaftar', 'hadir', 'tidak_hadir', 'dibatalkan'] as $st)
+                                    <option value="{{ $st }}">{{ $st }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </td>
+                </tr>
+            @empty
+                <tr><td colspan="6" class="text-sm text-slate-500">Belum ada pendaftar yang cocok dengan filter.</td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    <div class="mt-4">{{ $pendaftaran->links() }}</div>
 </div>
 
 <a href="{{ route('admin.laporan.ekspor', ['kehadiran', 'kegiatan' => $k->id_kegiatan]) }}" class="btn btn-ghost mt-4">
