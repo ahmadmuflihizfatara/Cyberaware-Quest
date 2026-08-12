@@ -14,8 +14,11 @@ use App\Models\Sertifikat;
 use App\Models\TransaksiPoin;
 use App\Support\Alur;
 use App\Support\MesinInstrumen;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AdminController extends Controller
@@ -165,24 +168,33 @@ class AdminController extends Controller
     {
         $def = $this->definisiLaporan($jenis);
         $idKegiatan = $request->integer('kegiatan') ?: null;
+        $totalBaris = ($def['kueri'])($idKegiatan)->count();
 
         return view('admin.laporan', [
             'jenis' => $jenis,
             'def' => $def,
             'baris' => ($def['kueri'])($idKegiatan)->limit(500)->get(),
+            'totalBaris' => $totalBaris,
             'kegiatan' => Kegiatan::orderBy('tema')->get(),
             'terpilih' => $idKegiatan,
             'daftar' => $this->daftarLaporan(),
         ]);
     }
 
-    public function ekspor(Request $request, string $jenis): StreamedResponse
+    public function ekspor(Request $request, string $jenis): StreamedResponse|Response
     {
         $def = $this->definisiLaporan($jenis);
-        $baris = ($def['kueri'])($request->integer('kegiatan') ?: null)->get();
-        $nama = 'laporan-'.$jenis.'-'.now()->format('Ymd-His').'.csv';
+        $idKegiatan = $request->integer('kegiatan') ?: null;
+        $baris = ($def['kueri'])($idKegiatan)->get();
+        $format = $request->query('format', 'csv') === 'pdf' ? 'pdf' : 'csv';
 
-        LogIntegrasi::catat('laporan', 'ekspor_csv', $jenis);
+        LogIntegrasi::catat('laporan', 'ekspor_'.$format, $jenis);
+
+        if ($format === 'pdf') {
+            return $this->eksporPdf($def, $baris, $jenis, $idKegiatan);
+        }
+
+        $nama = 'laporan-'.$jenis.'-'.now()->format('Ymd-His').'.csv';
 
         return response()->streamDownload(function () use ($def, $baris) {
             $out = fopen('php://output', 'w');
@@ -193,6 +205,32 @@ class AdminController extends Controller
             }
             fclose($out);
         }, $nama, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    private function eksporPdf(array $def, $baris, string $jenis, ?int $idKegiatan): Response
+    {
+        $namaKegiatan = $idKegiatan ? Kegiatan::find($idKegiatan)?->tema : null;
+
+        $opsi = new Options;
+        $opsi->set('isRemoteEnabled', false);
+        $opsi->set('defaultFont', 'DejaVu Sans');
+
+        $dompdf = new Dompdf($opsi);
+        $dompdf->loadHtml(view('admin.laporan-pdf', [
+            'def' => $def,
+            'baris' => $baris,
+            'namaKegiatan' => $namaKegiatan,
+            'dibuatPada' => now(),
+        ])->render());
+        $dompdf->setPaper('a4', 'landscape');
+        $dompdf->render();
+
+        $nama = 'laporan-'.$jenis.'-'.now()->format('Ymd-His').'.pdf';
+
+        return response($dompdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$nama.'"',
+        ]);
     }
 
     public function log()
