@@ -99,13 +99,17 @@ Route::middleware(['auth', 'role:admin,penyelenggara'])->prefix('admin')->name('
     Route::post('/kegiatan', [KegiatanController::class, 'store'])->name('kegiatan.store');
     Route::put('/kegiatan/{kegiatan}', [KegiatanController::class, 'update'])->name('kegiatan.update');
     Route::get('/kegiatan/{kegiatan}', [KegiatanController::class, 'show'])->name('kegiatan.show');
+    Route::get('/kegiatan/{kegiatan}/demografi', [KegiatanController::class, 'demografi'])->name('kegiatan.demografi');
     Route::post('/kegiatan/{kegiatan}/sesi', [KegiatanController::class, 'simpanSesi'])->name('kegiatan.sesi');
     Route::delete('/sesi/{sesi}', [KegiatanController::class, 'hapusSesi'])->name('sesi.hapus');
+    Route::post('/sesi/{sesi}/token/buat', [KegiatanController::class, 'buatTokenSesi'])->name('sesi.token.buat');
     Route::post('/kegiatan/{kegiatan}/fasilitator', [KegiatanController::class, 'tugaskanFasilitator'])->name('kegiatan.fasilitator');
     Route::delete('/kegiatan/{kegiatan}/fasilitator/{fasilitator}', [KegiatanController::class, 'lepasFasilitator'])->name('kegiatan.fasilitator.lepas');
     Route::post('/kegiatan/{kegiatan}/pelaksanaan', [KegiatanController::class, 'simpanPelaksanaan'])->name('kegiatan.pelaksanaan');
     Route::post('/kegiatan/{kegiatan}/evaluasi', [KegiatanController::class, 'simpanEvaluasi'])->name('kegiatan.evaluasi');
     Route::post('/kegiatan/{kegiatan}/indikator', [KegiatanController::class, 'simpanIndikator'])->name('kegiatan.indikator');
+    Route::post('/kegiatan/{kegiatan}/hasil/{fase}/toggle', [KegiatanController::class, 'toggleTampilkanHasil'])->name('kegiatan.hasil.toggle');
+    Route::post('/kegiatan/{kegiatan}/sertifikat/terbitkan', [KegiatanController::class, 'terbitkanSertifikatMassal'])->name('kegiatan.sertifikat.terbitkan');
     Route::put('/pendaftaran/{pendaftaran}', [KegiatanController::class, 'ubahStatusPendaftaran'])->name('pendaftaran.status');
 
     // Instrumen generik K3.

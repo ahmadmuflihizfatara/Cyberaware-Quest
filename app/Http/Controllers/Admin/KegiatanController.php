@@ -50,12 +50,43 @@ class KegiatanController extends Controller
         $kegiatan->load('program', 'sekolah.mitra', 'lokasi', 'sesi.fasilitator', 'sesi.materi',
             'fasilitator', 'pelaksanaan.versi.instrumen', 'konfigurasiEvaluasi.versi');
 
+        $progres = DB::table('pendaftaran as pd')
+            ->join('peserta as ps', 'ps.id_peserta', '=', 'pd.id_peserta')
+            ->leftJoin('afiliasi as a', 'a.id_pendaftaran', '=', 'pd.id_pendaftaran')
+            ->leftJoin('mitra as m', 'm.id_mitra', '=', 'a.id_mitra')
+            ->leftJoin('v_hasil_belajar as hb', 'hb.id_pendaftaran', '=', 'pd.id_pendaftaran')
+            ->where('pd.id_kegiatan', $kegiatan->id_kegiatan)
+            ->select('pd.id_pendaftaran', 'ps.nama_peserta', 'pd.status_pendaftaran', 'm.nama_mitra', 'a.peran_afiliasi', 'pd.tanggal_daftar', 'hb.skor_pretest', 'hb.skor_posttest')
+            ->get();
+            
+        $responsDemografi = DB::table('respons_instrumen as r')
+            ->join('pelaksanaan_instrumen as p', 'p.id_pelaksanaan', '=', 'r.id_pelaksanaan')
+            ->where('p.id_kegiatan', $kegiatan->id_kegiatan)
+            ->where('p.fase', 'demografi')
+            ->where('r.is_final', true)
+            ->pluck('r.id_pendaftaran');
+            
+        $responsKuesioner = DB::table('respons_instrumen as r')
+            ->join('pelaksanaan_instrumen as p', 'p.id_pelaksanaan', '=', 'r.id_pelaksanaan')
+            ->where('p.id_kegiatan', $kegiatan->id_kegiatan)
+            ->where('p.fase', 'kuesioner')
+            ->where('r.is_final', true)
+            ->pluck('r.id_pendaftaran');
+
+        $sertifikatTercetak = DB::table('sertifikat')
+            ->whereIn('id_pendaftaran', $progres->pluck('id_pendaftaran'))
+            ->pluck('id_pendaftaran');
+
         return view('admin.kegiatan.detail', [
             'k' => $kegiatan,
             'fasilitator' => Fasilitator::orderBy('nama_fasilitator')->get(),
             'materi' => Materi::orderBy('judul_materi')->get(),
             'versi' => VersiInstrumen::with('instrumen')->get(),
             'pendaftaran' => $kegiatan->pendaftaran()->with('peserta', 'afiliasi.mitra')->get(),
+            'progres' => $progres,
+            'responsDemografi' => $responsDemografi,
+            'responsKuesioner' => $responsKuesioner,
+            'sertifikatTercetak' => $sertifikatTercetak,
             'rekapHadir' => Kehadiran::selectRaw('id_sesi, count(*) as jumlah')
                 ->whereIn('id_sesi', $kegiatan->sesi->pluck('id_sesi'))
                 ->groupBy('id_sesi')->pluck('jumlah', 'id_sesi'),
@@ -196,6 +227,63 @@ class KegiatanController extends Controller
     }
 
     // ---------------------------------------------------------------- private
+
+    public function toggleTampilkanHasil(Request $request, Kegiatan $kegiatan, string $fase)
+    {
+        abort_unless(in_array($fase, ['demografi', 'pretest', 'posttest']), 404);
+        
+        $pelaksanaan = PelaksanaanInstrumen::where('id_kegiatan', $kegiatan->id_kegiatan)->where('fase', $fase)->firstOrFail();
+        $pelaksanaan->update(['tampilkan_hasil' => !$pelaksanaan->tampilkan_hasil]);
+
+        return back()->with('sukses', 'Status tampilan hasil ' . $fase . ' diubah.');
+    }
+
+    public function terbitkanSertifikatMassal(Kegiatan $kegiatan)
+    {
+        $pendaftaran = $kegiatan->pendaftaran()->whereDoesntHave('sertifikat')->get();
+        $jumlah = 0;
+
+        foreach ($pendaftaran as $p) {
+            if (\App\Support\Alur::layakSertifikat($p)) {
+                \App\Models\Sertifikat::create([
+                    'id_pendaftaran' => $p->id_pendaftaran,
+                    'nomor_sertifikat' => sprintf('CAQ/%s/%05d', now()->year, $p->id_pendaftaran),
+                    'kode_verifikasi' => 'VF-'.strtoupper(bin2hex(random_bytes(3))),
+                ]);
+                \App\Models\LogIntegrasi::catat('sertifikat', 'terbit_manual', 'pendaftaran #'.$p->id_pendaftaran);
+                $jumlah++;
+            }
+        }
+
+        return back()->with('sukses', "$jumlah sertifikat berhasil diterbitkan untuk pendaftar yang memenuhi syarat.");
+    }
+    
+    public function buatTokenSesi(Sesi $sesi)
+    {
+        \App\Models\TokenQrSesi::create([
+            'id_sesi' => $sesi->id_sesi,
+            'dibuka_oleh' => auth()->id(),
+            'token' => strtoupper(bin2hex(random_bytes(6))),
+            'berlaku_hingga' => now()->addHours(12),
+        ]);
+        return back()->with('sukses', 'Token kehadiran sesi dibuat oleh Admin.');
+    }
+
+    public function demografi(Kegiatan $kegiatan)
+    {
+        $pelaksanaan = $kegiatan->pelaksanaan()->where('fase', 'demografi')->firstOrFail();
+        
+        $respons = \App\Models\ResponsInstrumen::where('id_pelaksanaan', $pelaksanaan->id_pelaksanaan)
+            ->where('is_final', true)
+            ->with('pendaftaran.peserta', 'jawaban.butir')
+            ->get();
+
+        return view('admin.kegiatan.demografi', [
+            'k' => $kegiatan,
+            'respons' => $respons,
+            'butir' => $pelaksanaan->versi->butir()->orderBy('nomor_urut')->get()
+        ]);
+    }
 
     private function validasi(Request $request): array
     {

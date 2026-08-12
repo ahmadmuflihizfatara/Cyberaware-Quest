@@ -229,6 +229,11 @@ CREATE TABLE peserta (
     nama_peserta VARCHAR(150) NOT NULL,
     email        VARCHAR(150),
     no_hp        VARCHAR(30),
+    npm          VARCHAR(50),
+    asal_sekolah VARCHAR(150),
+    alamat_domisili TEXT,
+    no_ktp       VARCHAR(50),
+    foto_profil  VARCHAR(255),
     dibuat_pada  TIMESTAMP NOT NULL DEFAULT now(),
     CONSTRAINT pk_peserta PRIMARY KEY (id_peserta),
     CONSTRAINT uq_peserta_email UNIQUE (email)
@@ -379,6 +384,7 @@ CREATE TABLE pelaksanaan_instrumen (
     fase           VARCHAR(20) NOT NULL,
     dibuka_pada    TIMESTAMP,
     ditutup_pada   TIMESTAMP,
+    tampilkan_hasil BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT pk_pelaksanaan_instrumen PRIMARY KEY (id_pelaksanaan),
     CONSTRAINT uq_pelaksanaan UNIQUE (id_kegiatan, fase),
     CONSTRAINT fk_pelaksanaan_kegiatan FOREIGN KEY (id_kegiatan) REFERENCES kegiatan(id_kegiatan)

@@ -17,7 +17,7 @@
 <h3 class="mt-7 text-lg font-bold">Sesi &amp; materi</h3>
 <div class="card mt-3 tbl-wrap">
     <table class="tbl">
-        <thead><tr><th>#</th><th>Sesi</th><th>Fasilitator</th><th>Tanggal</th><th>Jam</th><th>Materi</th><th>Hadir</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>Sesi</th><th>Fasilitator</th><th>Tanggal</th><th>Jam</th><th>Hadir</th><th>Token</th><th></th></tr></thead>
         <tbody>
         @forelse ($k->sesi as $s)
             <tr>
@@ -26,12 +26,22 @@
                 <td>{{ $s->fasilitator?->nama_fasilitator }}</td>
                 <td>{{ $s->tanggal_sesi?->format('d/m/Y') }}</td>
                 <td>{{ substr($s->jam_mulai, 0, 5) }}–{{ substr($s->jam_selesai, 0, 5) }}</td>
-                <td class="text-slate-500">{{ $s->materi->pluck('judul_materi')->join(', ') ?: '—' }}</td>
                 <td>{{ $rekapHadir[$s->id_sesi] ?? 0 }}</td>
+                <td>
+                    @php $tk = $s->tokenAktif(); @endphp
+                    @if ($tk)
+                        <span class="font-mono bg-slate-100 px-2 py-1 rounded">{{ $tk->token }}</span>
+                    @else
+                        <form method="POST" action="{{ route('admin.sesi.token.buat', $s) }}">
+                            @csrf
+                            <button class="btn btn-primary btn-sm py-1 h-auto text-xs">Buat Token</button>
+                        </form>
+                    @endif
+                </td>
                 <td class="text-right">
                     <form method="POST" action="{{ route('admin.sesi.hapus', $s) }}" onsubmit="return confirm('Hapus sesi ini?')">
                         @csrf @method('DELETE')
-                        <button class="btn btn-danger btn-sm">Hapus</button>
+                        <button class="btn btn-danger btn-sm text-xs py-1 h-auto">Hapus</button>
                     </form>
                 </td>
             </tr>
@@ -121,7 +131,7 @@
 <p class="text-xs text-slate-400">Pre-test dan post-test wajib memakai versi instrumen yang sama (aturan bisnis #5).</p>
 <div class="card mt-3 tbl-wrap">
     <table class="tbl">
-        <thead><tr><th>Fase</th><th>Instrumen</th><th>Versi</th><th>Dibuka</th><th>Ditutup</th></tr></thead>
+        <thead><tr><th>Fase</th><th>Instrumen</th><th>Versi</th><th>Dibuka</th><th>Ditutup</th><th>Tampilkan Hasil</th></tr></thead>
         <tbody>
         @forelse ($k->pelaksanaan as $pl)
             <tr>
@@ -130,9 +140,25 @@
                 <td>v{{ $pl->versi->nomor_versi }} · {{ $pl->versi->status_versi }}</td>
                 <td>{{ $pl->dibuka_pada?->format('d/m/Y H:i') ?? 'segera' }}</td>
                 <td>{{ $pl->ditutup_pada?->format('d/m/Y H:i') ?? 'tanpa batas' }}</td>
+                <td>
+                    @if (in_array($pl->fase, ['demografi', 'pretest', 'posttest']))
+                        <form method="POST" action="{{ route('admin.kegiatan.hasil.toggle', [$k, $pl->fase]) }}">
+                            @csrf
+                            <button class="btn btn-sm {{ $pl->tampilkan_hasil ? 'btn-outline' : 'btn-primary' }}">
+                                @if ($pl->fase === 'demografi')
+                                    {{ $pl->tampilkan_hasil ? 'Tutup Akses Pre-test' : 'Lanjutkan Pre-test' }}
+                                @else
+                                    {{ $pl->tampilkan_hasil ? 'Sembunyikan' : 'Tampilkan' }}
+                                @endif
+                            </button>
+                        </form>
+                    @else
+                        —
+                    @endif
+                </td>
             </tr>
         @empty
-            <tr><td colspan="5" class="text-sm text-slate-500">Belum ada fase ditetapkan.</td></tr>
+            <tr><td colspan="6" class="text-sm text-slate-500">Belum ada fase ditetapkan.</td></tr>
         @endforelse
         </tbody>
     </table>
@@ -209,38 +235,69 @@
 @endif
 
 {{-- --------------------------------------------------------- PENDAFTARAN --}}
-<h3 class="mt-8 text-lg font-bold">Pendaftar</h3>
+<h3 class="mt-8 text-lg font-bold">Progres Peserta</h3>
 <div class="card mt-3 tbl-wrap">
     <table class="tbl">
-        <thead><tr><th>#</th><th>Peserta</th><th>Afiliasi</th><th>Terdaftar</th><th>Status</th><th></th></tr></thead>
-        <tbody>
-        @forelse ($pendaftaran as $p)
+        <thead>
             <tr>
-                <td class="text-slate-400">{{ $p->id_pendaftaran }}</td>
-                <td class="font-semibold">{{ $p->peserta->nama_peserta }}</td>
-                <td>{{ $p->afiliasi?->mitra?->nama_mitra }} ({{ $p->afiliasi?->peran_afiliasi }})</td>
-                <td>{{ $p->tanggal_daftar?->format('d/m/Y H:i') }}</td>
-                <td><span class="chip chip-off">{{ $p->status_pendaftaran }}</span></td>
+                <th>Peserta & Afiliasi</th>
+                <th class="text-center">Demografi</th>
+                <th class="text-center">Pre-test</th>
+                <th class="text-center">Post-test</th>
+                <th class="text-center">Kuesioner</th>
+                <th class="text-center">Sertifikat</th>
+                <th class="text-right">Status Pendaftaran</th>
+            </tr>
+        </thead>
+        <tbody>
+        @forelse ($progres as $p)
+            <tr>
+                <td>
+                    <div class="font-semibold">{{ $p->nama_peserta }}</div>
+                    <div class="text-xs text-slate-500">{{ $p->nama_mitra ?? 'Umum' }}</div>
+                </td>
+                <td class="text-center">
+                    {!! $responsDemografi->contains($p->id_pendaftaran) ? '<span class="text-green-600 font-bold">✅</span>' : '<span class="text-slate-300">❌</span>' !!}
+                </td>
+                <td class="text-center font-mono">{{ $p->skor_pretest ?? '—' }}</td>
+                <td class="text-center font-mono">{{ $p->skor_posttest ?? '—' }}</td>
+                <td class="text-center">
+                    {!! $responsKuesioner->contains($p->id_pendaftaran) ? '<span class="text-green-600 font-bold">✅</span>' : '<span class="text-slate-300">❌</span>' !!}
+                </td>
+                <td class="text-center">
+                    {!! $sertifikatTercetak->contains($p->id_pendaftaran) ? '<span class="chip chip-success">Terbit</span>' : '—' !!}
+                </td>
                 <td class="text-right">
-                    <form method="POST" action="{{ route('admin.pendaftaran.status', $p) }}" class="flex justify-end gap-2">
+                    <form method="POST" action="{{ route('admin.pendaftaran.status', $p->id_pendaftaran) }}" class="flex justify-end gap-2">
                         @csrf @method('PUT')
-                        <select class="select w-36" name="status_pendaftaran">
+                        <select class="select w-32" name="status_pendaftaran">
                             @foreach (['terdaftar', 'hadir', 'tidak_hadir', 'dibatalkan'] as $st)
                                 <option value="{{ $st }}" @selected($p->status_pendaftaran === $st)>{{ $st }}</option>
                             @endforeach
                         </select>
-                        <button class="btn btn-ghost btn-sm">Ubah</button>
+                        <button class="btn btn-ghost btn-sm py-1 h-auto text-xs">Ubah</button>
                     </form>
                 </td>
             </tr>
         @empty
-            <tr><td colspan="6" class="text-sm text-slate-500">Belum ada pendaftar.</td></tr>
+            <tr><td colspan="7" class="text-sm text-slate-500">Belum ada pendaftar.</td></tr>
         @endforelse
         </tbody>
     </table>
 </div>
 
-<a href="{{ route('admin.laporan.ekspor', ['kehadiran', 'kegiatan' => $k->id_kegiatan]) }}" class="btn btn-ghost mt-4">
-    Ekspor rekap kehadiran (CSV)
-</a>
+<div class="flex items-center gap-2 mt-4">
+    <a href="{{ route('admin.kegiatan.demografi', $k) }}" class="btn btn-outline">
+        Lihat Data Demografi
+    </a>
+    <a href="{{ route('admin.laporan.ekspor', ['kehadiran', 'kegiatan' => $k->id_kegiatan]) }}" class="btn btn-ghost">
+        Ekspor rekap kehadiran (CSV)
+    </a>
+    <form method="POST" action="{{ route('admin.kegiatan.sertifikat.terbitkan', $k) }}">
+        @csrf
+        <button class="btn btn-primary" onclick="return confirm('Terbitkan e-sertifikat untuk semua peserta yang telah menyelesaikan kuesioner?')">
+            Terbitkan E-Sertifikat
+        </button>
+    </form>
+</div>
 @endsection

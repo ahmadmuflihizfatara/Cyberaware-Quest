@@ -1,4 +1,4 @@
-@extends('layouts.app', ['aktifPendaftaran' => $pendaftaran->first()])
+@extends('layouts.app')
 @section('judul', 'Kegiatan Saya')
 
 @section('isi')

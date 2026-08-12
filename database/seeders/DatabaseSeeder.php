@@ -210,6 +210,8 @@ class DatabaseSeeder extends Seeder
             [$program[1], $sekolah[0], $lokasi[0], 'Kenali Phishing Sejak Dini', '2026-08-18', 60, 'luring', 'berlangsung'],
             [$program[0], $sekolah[1], $lokasi[2], 'Amankan Akun Media Sosialmu', '2026-08-25', 80, 'hybrid', 'terjadwal'],
             [$program[0], $sekolah[2], null, 'Privasi Digital untuk Pelajar', '2026-09-02', 50, 'daring', 'terjadwal'],
+            [$program[2], $sekolah[0], $lokasi[1], 'Menjaga Data Pribadi di Ruang Publik', '2026-10-10', 40, 'luring', 'terjadwal'],
+            [$program[2], $sekolah[1], $lokasi[2], 'Workshop Pembuatan Password Super', '2026-10-15', 100, 'daring', 'terjadwal'],
         ];
 
         $out = [];
@@ -235,6 +237,8 @@ class DatabaseSeeder extends Seeder
             [0, 2, 'Simulasi & Diskusi Kasus', '09:45', '11:15', 1, [0, 3]],
             [1, 1, 'Kata Sandi & Autentikasi Ganda', '08:00', '09:30', 1, [1]],
             [2, 1, 'Jejak Digital Pelajar', '13:00', '14:30', 0, [2]],
+            [3, 1, 'Pentingnya Menjaga Data', '08:00', '10:00', 0, [2]],
+            [4, 1, 'Praktek Membuat Password', '10:00', '12:00', 1, [1]],
         ];
 
         $out = [];
@@ -283,6 +287,10 @@ class DatabaseSeeder extends Seeder
             [$sesi[0], 'Kuis Kenali Email Palsu', 'kuis_praktik', 100],
             [$sesi[1], 'Tantangan Kata Sandi Kuat', 'tantangan', 150],
             [$sesi[1], 'Game Deteksi Tautan Berbahaya', 'game', 200],
+            [$sesi[2], 'Kuis Sandi', 'kuis_praktik', 100],
+            [$sesi[3], 'Diskusi Jejak Digital', 'tantangan', 100],
+            [$sesi[4], 'Game Data Publik', 'game', 100],
+            [$sesi[5], 'Simulasi Password', 'kuis_praktik', 150],
         ] as [$s, $judul, $jenis, $poin]) {
             AktivitasGamifikasi::firstOrCreate(
                 ['id_sesi' => $s->id_sesi, 'judul_gamifikasi' => $judul],
@@ -424,7 +432,7 @@ class DatabaseSeeder extends Seeder
 
     private function pelaksanaan(array $kegiatan, array $instrumen): void
     {
-        foreach ([$kegiatan[0], $kegiatan[1]] as $k) {
+        foreach ($kegiatan as $k) {
             foreach (['demografi' => $instrumen['demografi'], 'pretest' => $instrumen['tes'], 'posttest' => $instrumen['tes']] as $fase => $versi) {
                 PelaksanaanInstrumen::firstOrCreate(
                     ['id_kegiatan' => $k->id_kegiatan, 'fase' => $fase],
@@ -505,10 +513,7 @@ class DatabaseSeeder extends Seeder
                 ]);
             }
 
-            Sertifikat::firstOrCreate(['id_pendaftaran' => $pendaftaran->id_pendaftaran], [
-                'nomor_sertifikat' => sprintf('CAQ/%s/%05d', now()->year, $pendaftaran->id_pendaftaran),
-                'kode_verifikasi' => 'VF-7X9K2Q',
-            ]);
+            // Sertifikat tidak lagi di-generate otomatis oleh seeder agar alur penerbitan manual oleh admin dapat dites.
         }
     }
 

@@ -1,4 +1,4 @@
-@extends('layouts.app', ['aktifPendaftaran' => $aktif])
+@extends('layouts.app')
 @section('judul', 'Katalog Reward')
 
 @section('isi')

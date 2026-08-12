@@ -23,14 +23,21 @@ class Alur
         $hadir = $pretest && Kehadiran::where('id_pendaftaran', $p->id_pendaftaran)->exists();
         $posttest = $hadir && $p->responsFinal('posttest') !== null;
         $kuesioner = $posttest && $p->responsFinal('kuesioner') !== null;
+        
+        $flags = \App\Models\PelaksanaanInstrumen::where('id_kegiatan', $p->id_kegiatan)
+            ->pluck('tampilkan_hasil', 'fase')->toArray();
+            
+        $demografiLanjut = $flags['demografi'] ?? false;
+        $pretestTampil = $flags['pretest'] ?? false;
+        $posttestTampil = $flags['posttest'] ?? false;
 
         $urut = [
             ['persetujuan', 'Persetujuan & Demografi', true, $demografi, null],
-            ['pretest', 'Pre-test', $setuju && $demografi, $pretest, 'Selesaikan persetujuan dan demografi lebih dulu.'],
-            ['kehadiran', 'Check-in & Materi', $pretest, $hadir, 'Kerjakan pre-test lebih dulu.'],
+            ['pretest', 'Pre-test', $setuju && $demografi && $demografiLanjut, $pretest, 'Tunggu admin memverifikasi data demografi Anda.'],
+            ['kehadiran', 'Check-in & Materi', $pretest && $pretestTampil, $hadir, 'Tunggu admin menampilkan hasil pre-test Anda.'],
             ['posttest', 'Post-test', $hadir, $posttest, 'Diperlukan minimal satu kehadiran sesi.'],
-            ['kuesioner', 'Kuesioner', $posttest, $kuesioner, 'Selesaikan post-test lebih dulu.'],
-            ['sertifikat', 'Sertifikat', $kuesioner, $p->sertifikat !== null, 'Kuesioner penyelenggaraan belum dikirim.'],
+            ['kuesioner', 'Kuesioner', $posttest && $posttestTampil, $kuesioner, 'Tunggu admin menampilkan hasil post-test Anda.'],
+            ['sertifikat', 'Sertifikat', $p->sertifikat !== null, $p->sertifikat !== null, 'Menunggu e-sertifikat diterbitkan oleh admin.'],
         ];
 
         return array_map(fn ($t) => [

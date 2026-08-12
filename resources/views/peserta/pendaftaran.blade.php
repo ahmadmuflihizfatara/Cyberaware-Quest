@@ -16,6 +16,7 @@
 <h3 class="mt-7 text-lg font-bold">Alur enam tahap</h3>
 @include('peserta.partials.tahapan', ['p' => $p, 'tahapan' => $tahapan])
 
+@php $hadir = \App\Models\Kehadiran::where('id_pendaftaran', $p->id_pendaftaran)->exists(); @endphp
 <div class="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
     @foreach ([
         ['peserta.materi', 'Materi Sesi', 'Slide dan bahan bacaan tiap sesi'],
@@ -23,10 +24,20 @@
         ['peserta.gamifikasi', 'Gamifikasi', 'Kuis praktik, tantangan, game'],
         ['peserta.leaderboard', 'Leaderboard', 'Peringkat poin diperoleh'],
     ] as [$rute, $judul, $ket])
-        <a href="{{ route($rute, $p) }}" class="card card-pad transition hover:border-cyan-500">
-            <p class="font-semibold">{{ $judul }}</p>
-            <p class="mt-1 text-xs text-slate-500">{{ $ket }}</p>
-        </a>
+        @if($hadir)
+            <a href="{{ route($rute, $p) }}" class="card card-pad transition hover:border-cyan-500">
+                <p class="font-semibold">{{ $judul }}</p>
+                <p class="mt-1 text-xs text-slate-500">{{ $ket }}</p>
+            </a>
+        @else
+            <div class="card card-pad opacity-60 cursor-not-allowed" title="Lakukan Check-in terlebih dahulu untuk membuka menu ini.">
+                <p class="font-semibold flex items-center justify-between">
+                    {{ $judul }}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                </p>
+                <p class="mt-1 text-xs text-slate-500">{{ $ket }}</p>
+            </div>
+        @endif
     @endforeach
 </div>
 

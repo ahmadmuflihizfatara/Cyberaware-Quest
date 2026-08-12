@@ -42,6 +42,10 @@ class PesertaController extends Controller
             'badgeDidapat' => $aktif ? $aktif->badge()->count() : 0,
             'badgeTotal' => Badge::count(),
             'peringkat' => $aktif ? $this->peringkat($aktif) : null,
+            'kegiatanTersedia' => \App\Models\Kegiatan::with('sekolah.mitra')
+                ->whereNotIn('id_kegiatan', $pendaftaran->pluck('id_kegiatan'))
+                ->whereIn('status_kegiatan', ['terjadwal', 'berlangsung'])
+                ->get(),
         ]);
     }
 
@@ -110,6 +114,11 @@ class PesertaController extends Controller
 
         $final = $pendaftaran->responsFinal($fase);
         if ($final) {
+            if (in_array($fase, ['pretest', 'posttest']) && !$pelaksanaan->tampilkan_hasil) {
+                return view('peserta.instrumen-menunggu-hasil', [
+                    'p' => $pendaftaran, 'fase' => $fase
+                ]);
+            }
             return view('peserta.instrumen-hasil', [
                 'p' => $pendaftaran, 'fase' => $fase, 'respons' => $final->load('penilaian'),
                 'hasilBelajar' => $this->hasilBelajar($pendaftaran),
@@ -143,12 +152,8 @@ class PesertaController extends Controller
 
         LogIntegrasi::catat('instrumen', 'kirim_'.$fase, 'pendaftaran #'.$pendaftaran->id_pendaftaran);
 
-        if ($fase === 'kuesioner' && Alur::layakSertifikat($pendaftaran)) {
-            $this->terbitkanSertifikat($pendaftaran);
-        }
-
         return redirect()->route('peserta.instrumen', [$pendaftaran, $fase])
-            ->with('sukses', 'Jawaban tersimpan sebagai respons final.');
+            ->with('sukses', 'Respons berhasil dikirim.');
     }
 
     // ------------------------------------------- tahap 3: check-in dan materi
@@ -450,10 +455,20 @@ class PesertaController extends Controller
             'nama_pengguna' => ['required', 'string', 'max:150'],
             'email' => ['required', 'email', 'max:150', Rule::unique('pengguna', 'email')->ignore($pengguna->id_pengguna, 'id_pengguna')],
             'no_hp' => ['nullable', 'string', 'max:30'],
+            'npm' => ['nullable', 'string', 'max:50'],
+            'asal_sekolah' => ['nullable', 'string', 'max:150'],
+            'alamat_domisili' => ['nullable', 'string'],
+            'no_ktp' => ['nullable', 'string', 'max:50'],
+            'foto_profil' => ['nullable', 'image', 'max:2048'],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
         ]);
 
-        DB::transaction(function () use ($pengguna, $data) {
+        $pathFoto = null;
+        if ($request->hasFile('foto_profil')) {
+            $pathFoto = $request->file('foto_profil')->store('profil', 'public');
+        }
+
+        DB::transaction(function () use ($pengguna, $data, $pathFoto) {
             $lama = $pengguna->email;
             $pengguna->update(array_filter([
                 'nama_pengguna' => $data['nama_pengguna'],
@@ -461,11 +476,21 @@ class PesertaController extends Controller
                 'kata_sandi_hash' => $data['password'] ? Hash::make($data['password']) : null,
             ]));
 
-            Peserta::where('email', $lama)->update([
+            $updatePeserta = [
                 'nama_peserta' => $data['nama_pengguna'],
                 'email' => $data['email'],
                 'no_hp' => $data['no_hp'] ?? null,
-            ]);
+                'npm' => $data['npm'] ?? null,
+                'asal_sekolah' => $data['asal_sekolah'] ?? null,
+                'alamat_domisili' => $data['alamat_domisili'] ?? null,
+                'no_ktp' => $data['no_ktp'] ?? null,
+            ];
+            
+            if ($pathFoto) {
+                $updatePeserta['foto_profil'] = $pathFoto;
+            }
+
+            Peserta::where('email', $lama)->update($updatePeserta);
         });
 
         return back()->with('sukses', 'Profil diperbarui.');

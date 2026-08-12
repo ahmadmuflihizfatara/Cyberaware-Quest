@@ -1,4 +1,4 @@
-@extends('layouts.app', ['aktifPendaftaran' => $aktif])
+@extends('layouts.app')
 @section('judul', 'Dashboard Peserta')
 
 @section('isi')
@@ -25,8 +25,6 @@
         @endforeach
     </div>
 
-    <h3 class="mt-8 text-lg font-bold">Progres enam tahap</h3>
-    @include('peserta.partials.tahapan', ['p' => $aktif, 'tahapan' => $tahapan])
 @endif
 
 <h3 class="mt-9 text-lg font-bold">Kegiatan Saya</h3>
@@ -44,6 +42,26 @@
             </tr>
         @empty
             <tr><td colspan="5" class="text-sm text-slate-500">Belum ada pendaftaran.</td></tr>
+        @endforelse
+        </tbody>
+    </table>
+</div>
+
+<h3 class="mt-9 text-lg font-bold">Kegiatan yang Tersedia</h3>
+<div class="card mt-3 tbl-wrap">
+    <table class="tbl">
+        <thead><tr><th>Kegiatan</th><th>Sekolah</th><th>Tanggal</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+        @forelse ($kegiatanTersedia as $k)
+            <tr>
+                <td class="font-semibold">{{ $k->tema }}</td>
+                <td>{{ $k->sekolah?->mitra?->nama_mitra }}</td>
+                <td>{{ $k->tanggal_mulai?->translatedFormat('d M Y') }}</td>
+                <td><span class="chip chip-ok">{{ $k->status_kegiatan }}</span></td>
+                <td class="text-right"><a href="{{ route('kegiatan.show', $k) }}" class="btn btn-ghost btn-sm">Detail & Daftar</a></td>
+            </tr>
+        @empty
+            <tr><td colspan="5" class="text-sm text-slate-500">Tidak ada kegiatan lain yang tersedia saat ini.</td></tr>
         @endforelse
         </tbody>
     </table>
