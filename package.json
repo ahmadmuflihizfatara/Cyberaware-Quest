@@ -15,6 +15,7 @@
     },
     "dependencies": {
         "alpinejs": "^3.16.1",
+        "jsqr": "^1.4.0",
         "qrcode": "^1.5.4"
     }
 }
