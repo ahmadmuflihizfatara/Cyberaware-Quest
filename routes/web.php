@@ -18,6 +18,7 @@ Route::get('/program/{program}', [PublikController::class, 'programShow'])->name
 Route::get('/kegiatan', [PublikController::class, 'kegiatan'])->name('kegiatan.index');
 Route::get('/kegiatan/{kegiatan}', [PublikController::class, 'kegiatanShow'])->name('kegiatan.show');
 Route::get('/verifikasi-sertifikat', [PublikController::class, 'verifikasi'])->name('verifikasi');
+Route::view('/kebijakan-privasi', 'publik.kebijakan-privasi')->name('kebijakan-privasi');
 
 // ----------------------------------------------------------------- autentikasi
 

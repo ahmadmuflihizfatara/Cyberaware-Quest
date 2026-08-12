@@ -1,4 +1,8 @@
 import QRCode from 'qrcode';
+import Alpine from 'alpinejs';
+
+window.Alpine = Alpine;
+Alpine.start();
 
 // Setiap elemen <canvas data-qr="isi"> dirender menjadi QR code.
 document.querySelectorAll('canvas[data-qr]').forEach((el) => {

@@ -25,6 +25,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class PesertaController extends Controller
 {
@@ -115,7 +116,9 @@ class PesertaController extends Controller
 
             if (Pendaftaran::where('id_peserta', $peserta->id_peserta)
                 ->where('id_kegiatan', $kegiatan->id_kegiatan)->exists()) {
-                abort(422, 'Anda sudah terdaftar pada kegiatan ini.');
+                throw ValidationException::withMessages([
+                    'nama_peserta' => 'Anda sudah terdaftar pada kegiatan ini.',
+                ]);
             }
 
             $pendaftaran = Pendaftaran::create([
