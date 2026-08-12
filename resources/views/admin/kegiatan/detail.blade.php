@@ -11,13 +11,22 @@
         · {{ ucfirst($k->mode_pelaksanaan) }} · {{ $k->tanggal_mulai?->translatedFormat('d F Y') }}
         · kapasitas {{ $k->kapasitas }} · status {{ $k->status_kegiatan }}
     </p>
+
+    <div class="mt-4 flex flex-wrap gap-2">
+        <a href="{{ route('admin.kegiatan.demografi', $k) }}" class="btn btn-ghost btn-sm">Lihat jawaban demografi</a>
+        <form method="POST" action="{{ route('admin.kegiatan.sertifikat.terbitkan', $k) }}"
+              onsubmit="return confirm('Terbitkan sertifikat untuk semua pendaftar yang sudah memenuhi syarat tapi belum punya sertifikat?')">
+            @csrf
+            <button class="btn btn-ghost btn-sm">Terbitkan sertifikat tertinggal</button>
+        </form>
+    </div>
 </div>
 
 {{-- ------------------------------------------------------------------ SESI --}}
 <h3 class="mt-7 text-lg font-bold">Sesi &amp; materi</h3>
 <div class="card mt-3 tbl-wrap">
     <table class="tbl">
-        <thead><tr><th>#</th><th>Sesi</th><th>Fasilitator</th><th>Tanggal</th><th>Jam</th><th>Materi</th><th>Hadir</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>Sesi</th><th>Fasilitator</th><th>Tanggal</th><th>Jam</th><th>Materi</th><th>Hadir</th><th>Token</th><th></th></tr></thead>
         <tbody>
         @forelse ($k->sesi as $s)
             <tr>
@@ -28,6 +37,13 @@
                 <td>{{ substr($s->jam_mulai, 0, 5) }}–{{ substr($s->jam_selesai, 0, 5) }}</td>
                 <td class="text-slate-500">{{ $s->materi->pluck('judul_materi')->join(', ') ?: '—' }}</td>
                 <td>{{ $rekapHadir[$s->id_sesi] ?? 0 }}</td>
+                <td>
+                    <form method="POST" action="{{ route('admin.sesi.token.buat', $s) }}"
+                          title="Buka token check-in untuk sesi ini tanpa lewat fasilitator (berlaku 60 menit)">
+                        @csrf
+                        <button class="btn btn-ghost btn-sm">Buat token</button>
+                    </form>
+                </td>
                 <td class="text-right">
                     <form method="POST" action="{{ route('admin.sesi.hapus', $s) }}" onsubmit="return confirm('Hapus sesi ini?')">
                         @csrf @method('DELETE')
@@ -36,7 +52,7 @@
                 </td>
             </tr>
         @empty
-            <tr><td colspan="8" class="text-sm text-slate-500">Belum ada sesi.</td></tr>
+            <tr><td colspan="9" class="text-sm text-slate-500">Belum ada sesi.</td></tr>
         @endforelse
         </tbody>
     </table>
@@ -121,7 +137,7 @@
 <p class="text-xs text-slate-400">Pre-test dan post-test wajib memakai versi instrumen yang sama (aturan bisnis #5).</p>
 <div class="card mt-3 tbl-wrap">
     <table class="tbl">
-        <thead><tr><th>Fase</th><th>Instrumen</th><th>Versi</th><th>Dibuka</th><th>Ditutup</th></tr></thead>
+        <thead><tr><th>Fase</th><th>Instrumen</th><th>Versi</th><th>Dibuka</th><th>Ditutup</th><th>Hasil ke peserta</th></tr></thead>
         <tbody>
         @forelse ($k->pelaksanaan as $pl)
             <tr>
@@ -130,13 +146,29 @@
                 <td>v{{ $pl->versi->nomor_versi }} · {{ $pl->versi->status_versi }}</td>
                 <td>{{ $pl->dibuka_pada?->format('d/m/Y H:i') ?? 'segera' }}</td>
                 <td>{{ $pl->ditutup_pada?->format('d/m/Y H:i') ?? 'tanpa batas' }}</td>
+                <td>
+                    @if (in_array($pl->fase, ['pretest', 'posttest']))
+                        <form method="POST" action="{{ route('admin.kegiatan.hasil.toggle', [$k, $pl->fase]) }}">
+                            @csrf
+                            <button class="chip {{ $pl->tampilkan_hasil ? 'chip-ok' : 'chip-off' }}" type="submit">
+                                {{ $pl->tampilkan_hasil ? 'Tampil' : 'Disembunyikan' }}
+                            </button>
+                        </form>
+                    @else
+                        <span class="text-xs text-slate-400">—</span>
+                    @endif
+                </td>
             </tr>
         @empty
-            <tr><td colspan="5" class="text-sm text-slate-500">Belum ada fase ditetapkan.</td></tr>
+            <tr><td colspan="6" class="text-sm text-slate-500">Belum ada fase ditetapkan.</td></tr>
         @endforelse
         </tbody>
     </table>
 </div>
+<p class="mt-2 text-xs text-slate-400">
+    Klik status "Hasil ke peserta" untuk membuka/menyembunyikan skor pretest atau posttest. Default tampil —
+    sembunyikan hanya bila ingin meninjau nilai dulu sebelum peserta melihatnya.
+</p>
 
 <form method="POST" action="{{ route('admin.kegiatan.pelaksanaan', $k) }}" class="card card-pad mt-4 grid gap-3 sm:grid-cols-4">
     @csrf
@@ -325,6 +357,8 @@
                     <th>Afiliasi</th>
                     <th>Terdaftar</th>
                     <th>Progres</th>
+                    <th>Pre &rarr; Post</th>
+                    <th>Sertifikat</th>
                     <th>Status</th>
                 </tr>
             </thead>
@@ -346,10 +380,28 @@
                             <span class="chip {{ $p->kehadiran_count > 0 ? 'chip-ok' : 'chip-off' }}">
                                 Hadir {{ $p->kehadiran_count }}/{{ $totalSesi }}
                             </span>
+                            <span class="chip {{ in_array('demografi', $fase) ? 'chip-ok' : 'chip-off' }}">Demo</span>
                             <span class="chip {{ in_array('pretest', $fase) ? 'chip-ok' : 'chip-off' }}">Pre</span>
                             <span class="chip {{ in_array('posttest', $fase) ? 'chip-ok' : 'chip-off' }}">Post</span>
                             <span class="chip {{ in_array('kuesioner', $fase) ? 'chip-ok' : 'chip-off' }}">Kues</span>
                         </div>
+                    </td>
+                    <td class="whitespace-nowrap font-mono text-sm">
+                        {{ $p->skor_pretest ?? '—' }} &rarr; {{ $p->skor_posttest ?? '—' }}
+                        @if ($p->skor_pretest !== null && $p->skor_posttest !== null)
+                            <span class="block text-xs {{ $p->skor_posttest >= $p->skor_pretest ? 'text-emerald-600' : 'text-red-600' }}">
+                                {{ $p->skor_posttest >= $p->skor_pretest ? '+' : '' }}{{ round($p->skor_posttest - $p->skor_pretest, 1) }}
+                            </span>
+                        @endif
+                    </td>
+                    <td>
+                        @if ($p->sertifikat)
+                            <span class="chip {{ $p->sertifikat->status_sertifikat === 'terbit' ? 'chip-ok' : 'chip-bad' }}">
+                                {{ $p->sertifikat->status_sertifikat }}
+                            </span>
+                        @else
+                            <span class="chip chip-off">belum</span>
+                        @endif
                     </td>
                     <td>
                         <div class="flex items-center gap-2">
@@ -365,7 +417,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="6" class="text-sm text-slate-500">Belum ada pendaftar yang cocok dengan filter.</td></tr>
+                <tr><td colspan="8" class="text-sm text-slate-500">Belum ada pendaftar yang cocok dengan filter.</td></tr>
             @endforelse
             </tbody>
         </table>

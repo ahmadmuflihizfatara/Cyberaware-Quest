@@ -16,6 +16,7 @@
 <h3 class="mt-7 text-lg font-bold">Alur enam tahap</h3>
 @include('peserta.partials.tahapan', ['p' => $p, 'tahapan' => $tahapan])
 
+@php $sudahHadir = $p->kehadiran()->exists(); @endphp
 <div class="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
     @foreach ([
         ['peserta.materi', 'Materi Sesi', 'Slide dan bahan bacaan tiap sesi'],
@@ -23,10 +24,23 @@
         ['peserta.gamifikasi', 'Gamifikasi', 'Kuis praktik, tantangan, game'],
         ['peserta.leaderboard', 'Leaderboard', 'Peringkat poin diperoleh'],
     ] as [$rute, $judul, $ket])
-        <a href="{{ route($rute, $p) }}" class="card card-pad transition hover:border-cyan-500">
-            <p class="font-semibold">{{ $judul }}</p>
-            <p class="mt-1 text-xs text-slate-500">{{ $ket }}</p>
-        </a>
+        @if ($sudahHadir)
+            <a href="{{ route($rute, $p) }}" class="card card-pad transition hover:border-cyan-500">
+                <p class="font-semibold">{{ $judul }}</p>
+                <p class="mt-1 text-xs text-slate-500">{{ $ket }}</p>
+            </a>
+        @else
+            <div class="card card-pad cursor-not-allowed opacity-60" title="Check-in sesi dulu untuk membuka menu ini.">
+                <p class="flex items-center justify-between gap-2 font-semibold">
+                    {{ $judul }}
+                    <svg class="h-4 w-4 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2"/>
+                        <path stroke-linecap="round" d="M7 11V7a5 5 0 0110 0v4"/>
+                    </svg>
+                </p>
+                <p class="mt-1 text-xs text-slate-500">{{ $ket }}</p>
+            </div>
+        @endif
     @endforeach
 </div>
 

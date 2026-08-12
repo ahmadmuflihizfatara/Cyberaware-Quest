@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Kehadiran;
 use App\Models\Pendaftaran;
+use App\Models\PelaksanaanInstrumen;
 
 /**
  * Gerbang enam tahap alur peserta.
@@ -24,12 +25,20 @@ class Alur
         $posttest = $hadir && $p->responsFinal('posttest') !== null;
         $kuesioner = $posttest && $p->responsFinal('kuesioner') !== null;
 
+        // Admin bisa menunda tampilnya hasil pretest/posttest (kolom
+        // tampilkan_hasil, default true) sebelum peserta boleh lanjut ke
+        // tahap berikutnya.
+        $flagTampil = PelaksanaanInstrumen::where('id_kegiatan', $p->id_kegiatan)
+            ->pluck('tampilkan_hasil', 'fase');
+        $pretestTampil = (bool) ($flagTampil['pretest'] ?? true);
+        $posttestTampil = (bool) ($flagTampil['posttest'] ?? true);
+
         $urut = [
             ['persetujuan', 'Persetujuan & Demografi', true, $demografi, null],
             ['pretest', 'Pre-test', $setuju && $demografi, $pretest, 'Selesaikan persetujuan dan demografi lebih dulu.'],
-            ['kehadiran', 'Check-in & Materi', $pretest, $hadir, 'Kerjakan pre-test lebih dulu.'],
+            ['kehadiran', 'Check-in & Materi', $pretest && $pretestTampil, $hadir, 'Tunggu admin menampilkan hasil pre-test Anda.'],
             ['posttest', 'Post-test', $hadir, $posttest, 'Diperlukan minimal satu kehadiran sesi.'],
-            ['kuesioner', 'Kuesioner', $posttest, $kuesioner, 'Selesaikan post-test lebih dulu.'],
+            ['kuesioner', 'Kuesioner', $posttest && $posttestTampil, $kuesioner, 'Tunggu admin menampilkan hasil post-test Anda.'],
             ['sertifikat', 'Sertifikat', $kuesioner, $p->sertifikat !== null, 'Kuesioner penyelenggaraan belum dikirim.'],
         ];
 

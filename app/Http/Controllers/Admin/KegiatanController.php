@@ -8,14 +8,19 @@ use App\Models\IndikatorEvaluasi;
 use App\Models\Kegiatan;
 use App\Models\Kehadiran;
 use App\Models\KonfigurasiEvaluasiKegiatan;
+use App\Models\LogIntegrasi;
 use App\Models\Lokasi;
 use App\Models\Materi;
 use App\Models\PelaksanaanInstrumen;
 use App\Models\Pendaftaran;
 use App\Models\ProgramPkm;
+use App\Models\ResponsInstrumen;
 use App\Models\Sekolah;
+use App\Models\Sertifikat;
 use App\Models\Sesi;
+use App\Models\TokenQrSesi;
 use App\Models\VersiInstrumen;
+use App\Support\Alur;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -51,7 +56,9 @@ class KegiatanController extends Controller
         $kegiatan->load('program', 'sekolah.mitra', 'lokasi', 'sesi.fasilitator', 'sesi.materi',
             'fasilitator', 'pelaksanaan.versi.instrumen', 'konfigurasiEvaluasi.versi');
 
-        $q = $kegiatan->pendaftaran()->with('peserta', 'afiliasi.mitra')->withCount('kehadiran');
+        $q = $kegiatan->pendaftaran()->with('peserta', 'afiliasi.mitra', 'sertifikat')->withCount('kehadiran')
+            ->leftJoin('v_hasil_belajar as hb', 'hb.id_pendaftaran', '=', 'pendaftaran.id_pendaftaran')
+            ->addSelect('pendaftaran.*', 'hb.skor_pretest', 'hb.skor_posttest');
 
         if ($request->filled('cari')) {
             $cari = $request->string('cari');
@@ -61,7 +68,7 @@ class KegiatanController extends Controller
             $q->where('status_pendaftaran', $request->string('status'));
         }
 
-        $pendaftaran = $q->orderByDesc('id_pendaftaran')->paginate(10)->withQueryString();
+        $pendaftaran = $q->orderByDesc('pendaftaran.id_pendaftaran')->paginate(10)->withQueryString();
 
         // Satu kueri gabungan untuk seluruh baris di halaman ini — menghindari
         // N+1 dari memanggil Alur::tahapan() satu per satu per pendaftar.
@@ -90,6 +97,80 @@ class KegiatanController extends Controller
                 ? $kegiatan->konfigurasiEvaluasi->versi->butir()->with('indikator')->get()
                 : collect(),
         ]);
+    }
+
+    /** Rekap jawaban demografi seluruh peserta kegiatan ini, untuk ditinjau admin. */
+    public function demografi(Kegiatan $kegiatan)
+    {
+        $pelaksanaan = $kegiatan->pelaksanaan()->where('fase', 'demografi')->firstOrFail();
+
+        $respons = ResponsInstrumen::where('id_pelaksanaan', $pelaksanaan->id_pelaksanaan)
+            ->where('is_final', true)
+            ->with('pendaftaran.peserta', 'jawaban.butir', 'jawaban.opsi')
+            ->get();
+
+        return view('admin.kegiatan.demografi', [
+            'k' => $kegiatan,
+            'respons' => $respons,
+            'butir' => $pelaksanaan->versi->butir()->orderBy('nomor_urut')->get(),
+        ]);
+    }
+
+    /** Buka/tutup tampilnya hasil pretest/posttest ke peserta untuk satu fase. */
+    public function toggleTampilkanHasil(Kegiatan $kegiatan, string $fase)
+    {
+        abort_unless(in_array($fase, ['pretest', 'posttest'], true), 404);
+
+        $pelaksanaan = PelaksanaanInstrumen::where('id_kegiatan', $kegiatan->id_kegiatan)
+            ->where('fase', $fase)->firstOrFail();
+        $pelaksanaan->update(['tampilkan_hasil' => ! $pelaksanaan->tampilkan_hasil]);
+
+        LogIntegrasi::catat('kegiatan', 'toggle_tampilkan_hasil', $fase.' kegiatan #'.$kegiatan->id_kegiatan);
+
+        return back()->with('sukses', 'Status tampilan hasil '.$fase.' diubah.');
+    }
+
+    /**
+     * Alat bantu tambahan: terbitkan sertifikat untuk semua pendaftar yang
+     * sudah memenuhi syarat tapi entah kenapa belum kebagian (mis. jawaban
+     * dikirim sebelum fitur auto-terbit ada). Auto-terbit di kirimInstrumen()
+     * tetap jalan seperti biasa — ini cuma jaring pengaman manual.
+     */
+    public function terbitkanSertifikatMassal(Kegiatan $kegiatan)
+    {
+        $jumlah = 0;
+        foreach ($kegiatan->pendaftaran()->whereDoesntHave('sertifikat')->get() as $p) {
+            if (! Alur::layakSertifikat($p)) {
+                continue;
+            }
+            Sertifikat::create([
+                'id_pendaftaran' => $p->id_pendaftaran,
+                'nomor_sertifikat' => sprintf('CAQ/%s/%05d', now()->year, $p->id_pendaftaran),
+                'kode_verifikasi' => 'VF-'.strtoupper(bin2hex(random_bytes(3))),
+            ]);
+            $jumlah++;
+        }
+        LogIntegrasi::catat('sertifikat', 'terbit_massal_kegiatan', $jumlah.' sertifikat kegiatan #'.$kegiatan->id_kegiatan);
+
+        return back()->with('sukses', $jumlah > 0
+            ? $jumlah.' sertifikat diterbitkan untuk pendaftar yang memenuhi syarat.'
+            : 'Tidak ada pendaftar tambahan yang memenuhi syarat sertifikat saat ini.');
+    }
+
+    /** Admin membuka token check-in untuk sesi manapun, tanpa terikat penugasan fasilitator. */
+    public function buatTokenSesi(Request $request, Sesi $sesi)
+    {
+        $menit = max(1, min(720, $request->integer('menit', 60)));
+
+        TokenQrSesi::create([
+            'id_sesi' => $sesi->id_sesi,
+            'dibuka_oleh' => $request->user()->id_pengguna,
+            'token' => strtoupper(bin2hex(random_bytes(6))),
+            'berlaku_hingga' => now()->addMinutes($menit),
+        ]);
+        LogIntegrasi::catat('kehadiran', 'buat_token_qr_admin', 'sesi #'.$sesi->id_sesi);
+
+        return back()->with('sukses', 'Token check-in dibuat oleh admin, berlaku '.$menit.' menit.');
     }
 
     // ------------------------------------------------------------------- sesi

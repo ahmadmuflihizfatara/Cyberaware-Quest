@@ -46,6 +46,10 @@ class PesertaController extends Controller
             'badgeDidapat' => $aktif ? $aktif->badge()->count() : 0,
             'badgeTotal' => Badge::count(),
             'peringkat' => $aktif ? $this->peringkat($aktif) : null,
+            'kegiatanTersedia' => Kegiatan::with('sekolah.mitra')
+                ->whereNotIn('id_kegiatan', $pendaftaran->pluck('id_kegiatan'))
+                ->whereIn('status_kegiatan', ['terjadwal', 'berlangsung'])
+                ->orderBy('tanggal_mulai')->limit(5)->get(),
         ]);
     }
 
@@ -199,6 +203,10 @@ class PesertaController extends Controller
 
         $final = $pendaftaran->responsFinal($fase);
         if ($final) {
+            if (in_array($fase, ['pretest', 'posttest'], true) && ! $pelaksanaan->tampilkan_hasil) {
+                return view('peserta.instrumen-menunggu-hasil', ['p' => $pendaftaran, 'fase' => $fase]);
+            }
+
             return view('peserta.instrumen-hasil', [
                 'p' => $pendaftaran, 'fase' => $fase, 'respons' => $final->load('penilaian'),
                 'hasilBelajar' => $this->hasilBelajar($pendaftaran),
@@ -539,22 +547,35 @@ class PesertaController extends Controller
             'nama_pengguna' => ['required', 'string', 'max:150'],
             'email' => ['required', 'email', 'max:150', Rule::unique('pengguna', 'email')->ignore($pengguna->id_pengguna, 'id_pengguna')],
             'no_hp' => ['nullable', 'string', 'max:30'],
+            'npm' => ['nullable', 'string', 'max:50'],
+            'asal_sekolah' => ['nullable', 'string', 'max:150'],
+            'alamat_domisili' => ['nullable', 'string', 'max:1000'],
+            'no_ktp' => ['nullable', 'string', 'max:50'],
+            'foto_profil' => ['nullable', 'image', 'max:2048'],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
         ]);
 
-        DB::transaction(function () use ($pengguna, $data) {
+        $pathFoto = $request->hasFile('foto_profil')
+            ? $request->file('foto_profil')->store('profil', 'public')
+            : null;
+
+        DB::transaction(function () use ($pengguna, $data, $pathFoto) {
             $lama = $pengguna->email;
             $pengguna->update(array_filter([
                 'nama_pengguna' => $data['nama_pengguna'],
                 'email' => $data['email'],
-                'kata_sandi_hash' => $data['password'] ? Hash::make($data['password']) : null,
+                'kata_sandi_hash' => ($data['password'] ?? null) ? Hash::make($data['password']) : null,
             ]));
 
-            Peserta::where('email', $lama)->update([
+            Peserta::where('email', $lama)->update(array_merge([
                 'nama_peserta' => $data['nama_pengguna'],
                 'email' => $data['email'],
                 'no_hp' => $data['no_hp'] ?? null,
-            ]);
+                'npm' => $data['npm'] ?? null,
+                'asal_sekolah' => $data['asal_sekolah'] ?? null,
+                'alamat_domisili' => $data['alamat_domisili'] ?? null,
+                'no_ktp' => $data['no_ktp'] ?? null,
+            ], $pathFoto ? ['foto_profil' => $pathFoto] : []));
         });
 
         return back()->with('sukses', 'Profil diperbarui.');

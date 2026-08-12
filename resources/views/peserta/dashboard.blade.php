@@ -48,4 +48,24 @@
         </tbody>
     </table>
 </div>
+
+@if ($kegiatanTersedia->isNotEmpty())
+    <h3 class="mt-9 text-lg font-bold">Kegiatan yang Tersedia</h3>
+    <div class="card mt-3 tbl-wrap">
+        <table class="tbl">
+            <thead><tr><th>Kegiatan</th><th>Sekolah</th><th>Tanggal</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+            @foreach ($kegiatanTersedia as $k)
+                <tr>
+                    <td class="font-semibold">{{ $k->tema }}</td>
+                    <td>{{ $k->sekolah?->mitra?->nama_mitra }}</td>
+                    <td>{{ $k->tanggal_mulai?->translatedFormat('d M Y') }}</td>
+                    <td><span class="chip {{ $k->status_kegiatan === 'berlangsung' ? 'chip-warn' : 'chip-off' }}">{{ $k->status_kegiatan }}</span></td>
+                    <td class="text-right"><a href="{{ route('kegiatan.show', $k) }}" class="btn btn-ghost btn-sm">Detail</a></td>
+                </tr>
+            @endforeach
+            </tbody>
+        </table>
+    </div>
+@endif
 @endsection
